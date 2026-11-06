@@ -8,5 +8,5 @@ Nguồn: PRD chương 5, 10 và `docs/implementation-plan.md` tại root.
 - `src/server/{db,auth,ai,storage,integrations}`: hạ tầng phía server, không import vào client. `src/lib`: tiện ích thuần/theme.
 - Chỉ tạo module/folder khi có code dùng thật. Không repository pattern/generic base class mặc định.
 - Ant Design sở hữu controls/state; Tailwind sở hữu layout. Theme chung `src/lib/theme.ts`, ánh xạ CSS qua root layout; đọc DESIGN.md trước sửa UI.
-- Giai đoạn 0 chưa có Prisma Client hoặc model. Auth adapter/schema ở Giai đoạn 1. AI/storage/source adapter ở giai đoạn có consumer thực, không scaffold SDK vô dụng.
+- Giai đoạn 1 đã có Prisma Client 7.10.1 + adapter-pg singleton, NextAuth 4 Credentials, User/session registry/rate-limit tables; schema theo yêu cầu username-only, không Better Auth/email. AI/storage/source adapter ở giai đoạn có consumer thực.
 - Vercel Functions không chạy Ollama/PostgreSQL dài hạn. Giới hạn nguồn/JD/timeout; worker/queue chỉ cân nhắc khi có nhu cầu giai đoạn sau.

@@ -6,11 +6,11 @@ Nguồn nghiệp vụ chính thức: [AI_Job_Finder_PRD_NextJS_Database_Roadmap_
 
 Sản phẩm giúp một người tìm việc quản lý CV, mô tả công việc mong muốn, đối chiếu JD, tự ứng tuyển và giữ lịch sử đáng tin cậy. Chuẩn bị ownership cho nhiều người dùng từ đầu, chưa triển khai organization/tenant.
 
-MVP: auth email/password/verify/reset; hồ sơ và CV private; Search Profiles bằng ngôn ngữ tự nhiên và chỉnh tay; tìm theo yêu cầu qua nguồn hợp lệ hoặc nhập JD; hard filters + AI Matching có giải thích/fallback; danh sách tin, Saved/Skipped; mở Apply URL và xác nhận Applied; lịch sử/timeline; dashboard.
+MVP (auth đã được điều chỉnh): register/login username-password và logout; hồ sơ và CV private; Search Profiles bằng ngôn ngữ tự nhiên và chỉnh tay; tìm theo yêu cầu qua nguồn hợp lệ hoặc nhập JD; hard filters + AI Matching có giải thích/fallback; danh sách tin, Saved/Skipped; mở Apply URL và xác nhận Applied; lịch sử/timeline; dashboard.
 
 Ngoài MVP: scheduler, Daily Discovery, bot tự Apply/upload CV/gửi email, worker luôn bật, billing, multi-tenant administration. Không crawl nguồn bị cấm hoặc bypass CAPTCHA/OTP/rate limits. Không sample jobs production để coi như tích hợp thành công.
 
-**Quyền triển khai hiện tại: chỉ Giai đoạn 0.** Nghiệm thu một phase không tự cho phép triển khai phase kế tiếp. UI/tài liệu bằng tiếng Việt, code/fields bằng tiếng Anh.
+**Quyền triển khai hiện tại: Giai đoạn 1 — Authentication cơ bản.** Yêu cầu người dùng ngày 06/11/2026 thay phần auth/email của PRD; chi tiết tại [đặc tả Giai đoạn 1](phase-1-authentication.md). Nghiệm thu một phase không tự cho phép triển khai phase kế tiếp. UI/tài liệu bằng tiếng Việt, code/fields bằng tiếng Anh.
 
 ## 2. Kiến trúc và stack
 
@@ -23,13 +23,13 @@ Một repository, một Next.js app module-first triển khai Vercel. Next.js ch
 | UI         | Ant Design 6.7, nextjs-registry cho SSR, CSS-in-JS layer; Tailwind 4 cho layout               |
 | Validation | Zod tại biên API/form/AI; không dùng entity DB làm input contract                             |
 | Database   | Neon PostgreSQL; Prisma 7.10.1 config ở phase 0; client/adapter đồng bộ ở phase 1             |
-| Auth       | Better Auth + Prisma adapter thực tế; generate schema theo version đã chọn ở phase 1          |
+| Auth       | NextAuth 4.24.15 Credentials + encrypted JWT, Prisma User/session registry, không email       |
 | AI         | Vercel AI SDK; provider/model cấu hình server, ưu tiên quota miễn phí; lựa chọn trước phase 3 |
 | CV         | Private object storage; chọn provider trước phase 2, signed URL và owner checks               |
 | Tooling    | ESLint, Prettier, Vitest, Playwright và axe accessibility                                     |
 | Hosting    | Cấu hình Next.js cho Vercel Node 24; deploy thật ở phase 7 theo yêu cầu                       |
 
-Prisma 7 được pin vì Better Auth hiện chưa hỗ trợ client API Prisma 8. Không dùng `latest` cho Prisma. CLI/client/driver adapter phải cùng dòng tương thích khi bổ sung. Kiểm tra lại thư viện và chính sách cloud ở phase sử dụng, không coi quota/free tier là cam kết vĩnh viễn.
+Prisma 7.10.1 tiếp tục được pin để giữ tương thích CLI/client/adapter. Auth phase 1 chuyển sang NextAuth Credentials theo yêu cầu username-only; Better Auth vẫn yêu cầu email/name khi đăng ký. Không dùng `latest` cho Prisma. CLI/client/driver adapter phải cùng dòng tương thích khi bổ sung. Kiểm tra lại thư viện và chính sách cloud ở phase sử dụng, không coi quota/free tier là cam kết vĩnh viễn.
 
 ### Trách nhiệm source
 
@@ -62,23 +62,22 @@ Server Components mặc định; client boundary nhỏ cho provider/tương tác
 
 ### Quy ước và invariants
 
-- Bốn auth models theo Better Auth generate thực tế. `User.id` và mọi `userId` dùng kiểu tương thích (String); business PK UUID. Không ép auth ID thành UUID.
+- Auth phase 1 dùng User, AuthSession, AuthRateLimit. User.id là String trong TypeScript, UUID trong PostgreSQL; mọi FK userId tương lai dùng String @db.Uuid. Không tạo email/Account/Verification không dùng.
 - Models PascalCase, fields camelCase; nếu map SQL snake_case thì nhất quán toàn schema. DateTime UTC, business timestamps dùng timestamptz. Tiền dùng Decimal + currency + period, không float.
 - JSONB cho criteria/AI breakdown/metadata mở rộng; tách cột thường lọc/index. Không soft-delete mọi bảng theo mặc định.
 - Mọi truy cập dữ liệu cá nhân kiểm tra owner tại server, bao gồm các ID liên kết. Dữ liệu PUBLIC_SOURCE chỉ dùng chung theo quyền nguồn. PRIVATE_IMPORT có owner và không đi vào query/cache/dedup của user khác.
 - Unique/index/check constraints phải nằm trong DB, không chỉ kiểm tra UI. SQL migration bổ sung partial index/check khi Prisma chưa biểu diễn đủ.
 - Không cascade xóa application theo JD/CV; giữ snapshots và quan hệ phù hợp. Không tạo schema của phase tương lai sớm.
 
-### Phân bổ 20 bảng MVP
+### Phân bổ bảng MVP theo PRD và thay đổi auth
 
-Đây là bản đồ triển khai. Khi làm từng phase phải đọc lại đầy đủ fields/types/FK trong chương 7 PRD và đối chiếu schema thực tế.
+PRD gốc có 20 bảng. Theo yêu cầu phase 1, nhóm 4 auth tables được thay bằng User/AuthSession/AuthRateLimit; business tables tương lai vẫn theo PRD. Đây là bản đồ triển khai. Khi làm từng phase phải đọc lại đầy đủ fields/types/FK trong chương 7 PRD và đối chiếu schema thực tế.
 
 | Bảng                     | Phase | Quan hệ, dữ liệu và constraints chính                                                                                                                                                       |
 | ------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| User                     | 1     | Auth String PK; email unique; không nhét hồ sơ tuyển dụng vào auth user                                                                                                                     |
-| Session                  | 1     | FK userId, token unique, expiresAt; index userId; theo generator                                                                                                                            |
-| Account                  | 1     | FK userId, provider/account, password hash thư viện quản lý; theo adapter                                                                                                                   |
-| Verification             | 1     | Identifier/value/expiry theo generator; không log token                                                                                                                                     |
+| User                     | 1     | UUID PK, usernameKey lowercase unique, passwordHash, role User/Administrator, developmentOnly; không email/name/profile                                                                     |
+| AuthSession              | 1     | UUID PK, userId FK, expiresAt; indexes userId/expiry; registry thu hồi JWT NextAuth, không cookie/token thô                                                                                 |
+| AuthRateLimit            | 1     | HMAC key PK, count, expiresAt; atomic fixed windows, index expiry; dùng chung các Vercel instances                                                                                          |
 | CandidateProfile         | 2     | UUID; userId unique (1:1 User); contact, experience, salary, links                                                                                                                          |
 | CandidateSkill           | 2     | FK userId/profileId cùng owner; unique(profileId, normalizedName), index userId                                                                                                             |
 | CandidateResume          | 2     | FK user/profile; objectKey, MIME/size/SHA256/version/default; index(userId, uploadedAt), unique(userId, sha256, version); review partial unique default                                     |
@@ -102,14 +101,14 @@ Quan hệ: User 1:1 Profile, 1:N CV/SearchProfile/UserJob/Application; Resume 1:
 
 - Runtime: `DATABASE_URL` pooled Neon. Prisma CLI: `DIRECT_URL` direct qua `prisma.config.ts`.
 - Phase 0: datasource PostgreSQL không model/generator/client; không migration, seed hoặc bảng giả. `db:validate` không cần credentials. `db:check` dùng Neon driver SELECT 1, timeout 10 giây và lỗi đã loại thông tin kết nối.
-- Phase 1: generate Better Auth schema → review → thêm generator/client/adapter → migration thật đầu tiên → Prisma singleton server. Không để `@prisma/client` chưa generate được import trong phase 0.
+- Phase 1: User/AuthSession/AuthRateLimit → review SQL constraints → migration thật → Prisma 7 client + adapter-pg singleton. Install/build có prisma generate, không migrate tự động. Pg adapter hỗ trợ Neon pooled và PostgreSQL local kiểm thử.
 - Dev migration trên branch/database phù hợp. Production dùng `prisma migrate deploy` trong bước kiểm soát sau review/backup; không migrate trong build hoặc `db push` production.
 
 ## 4. Authentication, CV và AI Architecture
 
 ### Authentication
 
-Phase 1 triển khai Better Auth email/password, verify/resend, forgot/reset/change password, login/logout, quản lý session và protected layouts. Generator/adapter thực tế quyết định auth schema. Cookie HttpOnly/Secure/SameSite phù hợp HTTPS, rate limits cho luồng nhạy cảm; server lấy userId từ session. Test quyền với hai người dùng, không chỉ chặn route ở client. Email dev và provider thật được cấu hình trước nghiệm thu auth; không công bố gửi mail thành công khi chỉ log local.
+Phase 1 triển khai username/password-only: register/login/logout, Role User/Administrator, protected dashboard và Admin seed. NextAuth Credentials stable quản lý encrypted JWT/CSRF/cookies (HttpOnly, SameSite=Lax, Secure trên HTTPS). Prisma session registry thu hồi ngay khi logout; server đọc user/role/expiry từ DB. Hash scrypt có salt. Username ASCII 3–32 ký tự, unique lowercase; password đăng ký 8–128 ký tự. Không email giả, verification, reset/change password, OAuth hoặc profile. Rate limits bền qua PostgreSQL. Chi tiết tại [phase-1-authentication.md](phase-1-authentication.md).
 
 ### Candidate và CV
 
@@ -153,7 +152,7 @@ JobApplication status tách UserJob status; tin Applied vẫn có thể Saved. K
 
 ## 7. Roadmap Giai đoạn 0–7
 
-### Giai đoạn 0 — Nền tảng (phạm vi hiện tại)
+### Giai đoạn 0 — Nền tảng (đã hoàn thành)
 
 | Mục                  | Nội dung                                                                                                                                             |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -167,19 +166,23 @@ JobApplication status tách UserJob status; tin Applied vẫn có thể Saved. K
 | Nghiệm thu           | Local checks đạt, app không cần dịch vụ ngoài, tài liệu/skill hợp lệ; không nghiệp vụ phase 1+; không commit/push                                    |
 | Rủi ro/chưa xác minh | Neon thật và Vercel deploy cần credentials; runtime skill discovery có thể không có UI kiểm tra; build không chứng minh cloud                        |
 
-### Giai đoạn 1 — Authentication (chưa triển khai)
+### Giai đoạn 1 — Authentication cơ bản (đã triển khai trên Neon development)
 
-| Mục                  | Nội dung                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Mục tiêu             | Tài khoản và phiên đăng nhập an toàn                                                                           |
-| Nghiệp vụ            | Signup/verify/resend/login/logout/forgot/reset/change password, profile auth và session                        |
-| Database             | User/Session/Account/Verification theo Better Auth generate; migration thật đầu tiên                           |
-| API/UI               | Better Auth handler `/api/auth/[...all]`; auth forms, protected layout, account page                           |
-| Dependencies         | Better Auth, Prisma adapter/client/driver adapter tương thích; email dev và provider thật                      |
-| Công việc            | Chọn version/email, generate schema, review migration, singleton, cookie/session/rate limit, server guards     |
-| Testing              | Signup/verify/reset/invalid password/session expiry/logout; hai tài khoản A/B; không rò account/token          |
-| Nghiệm thu           | Các luồng auth thật hoạt động; server chặn truy cập trái phép; email đã kiểm chứng theo môi trường             |
-| Rủi ro/chưa xác minh | Khả năng gửi email, quotas/domain, adapter/version, deletion/retention account cần quyết định trước triển khai |
+Yêu cầu vận hành bổ sung: trước migration/seed trên Neon, phải xác minh pooled/direct cùng branch ID và đối chiếu với branch development qua Neon API hoặc Console. Không suy tên branch từ NODE_ENV, database name hoặc việc kết nối thành công. Khi chưa xác minh, chỉ chạy đọc và kiểm tra source; dừng mọi ghi database, kể cả auth requests ghi rate-limit/session.
+
+Đã đối chiếu qua xác nhận Neon Console của người dùng: development là `br-wispy-tooth-a1v4uyeg`, endpoint `ep-shy-lab-a16f7uzz`, project `tiny-cake-04873140`. Đã kiểm tra lại metadata trước ghi, apply migration, seed idempotent và kiểm tra auth trên branch này. Chi tiết tại [báo cáo Giai đoạn 1](phase-1-report.md); không tự chuyển Giai đoạn 2.
+
+| Mục                  | Nội dung                                                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Mục tiêu             | Username/password auth an toàn, không email                                                                                               |
+| Nghiệp vụ            | Register (username/password/confirm), login/logout, Role User mặc định; seed Administrator                                                |
+| Database             | User, AuthSession, AuthRateLimit; unique normalized username; migration 20261106000100_authentication                                     |
+| API/UI               | NextAuth /api/auth/[...nextauth], POST /api/auth/register, /login, /register, protected /dashboard; logout trong layout                   |
+| Dependencies         | NextAuth 4.24.15 stable, Prisma client/adapter-pg 7.10.1, pg; Node crypto scrypt                                                          |
+| Công việc            | Validation client/server, hash, session registry/CSRF/rate limits, dev-only admin seed, responsive UI, docs/skill                         |
+| Testing              | Register/duplicates/password/role injection, login/logout/replay/expiry, unauthorized, seed idempotency/production guards, PostgreSQL E2E |
+| Nghiệm thu           | Luồng thật hoạt động, password không plaintext, server authorization, admin default chỉ dev; không thêm phase 2                           |
+| Rủi ro/chưa xác minh | Neon thật cần credentials; local integration không chứng minh Neon/Vercel. Self-host dùng bucket shared, không tin proxy headers tùy ý    |
 
 ### Giai đoạn 2 — Candidate và CV (chưa triển khai)
 

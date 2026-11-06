@@ -6,9 +6,12 @@ const databaseUrlSchema = z
   .superRefine((value, context) => {
     if (!URL.canParse(value)) return;
     const url = new URL(value);
+    const isNeonPooler =
+      url.hostname.endsWith('.neon.tech') &&
+      url.hostname.split('.')[0].endsWith('-pooler');
     if (
       !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      !url.hostname.endsWith('-pooler.neon.tech') ||
+      !isNeonPooler ||
       !url.username ||
       !url.password ||
       url.pathname.length < 2 ||

@@ -10,6 +10,8 @@ describe('cấu hình Neon', () => {
     'invalid',
     'postgresql://USER:PASSWORD@YOUR-ENDPOINT-pooler.neon.tech/DBNAME?sslmode=require',
     'postgresql://user:secret@ep-test.neon.tech/app?sslmode=require',
+    'postgresql://user:secret@ep-test.ap-southeast-1.aws.neon.tech/app?sslmode=require',
+    'postgresql://user:secret@ep-test-pooler.ap-southeast-1.aws.neon.tech.example.org/app?sslmode=require',
     'postgresql://user:secret@ep-test-pooler.neon.tech/app',
     'https://user:secret@ep-test-pooler.neon.tech/app?sslmode=require',
   ])('từ chối cấu hình sai và không lộ giá trị kết nối', (url) => {
@@ -23,9 +25,13 @@ describe('cấu hình Neon', () => {
     }
   });
 
-  it('chấp nhận pooled URL có TLS và credentials', () => {
-    const url =
-      'postgresql://user:secret@ep-test-pooler.neon.tech/app?sslmode=require';
-    expect(getDatabaseUrl({ DATABASE_URL: url })).toBe(url);
-  });
+  it.each([
+    'postgresql://user:secret@ep-test-pooler.neon.tech/app?sslmode=require',
+    'postgresql://user:secret@ep-test-pooler.ap-southeast-1.aws.neon.tech/app?sslmode=require&channel_binding=require',
+  ])(
+    'chấp nhận pooled URL có TLS, credentials và hostname theo region',
+    (url) => {
+      expect(getDatabaseUrl({ DATABASE_URL: url })).toBe(url);
+    },
+  );
 });

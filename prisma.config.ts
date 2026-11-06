@@ -3,7 +3,7 @@ import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
-  migrations: { path: 'prisma/migrations' },
+  migrations: { path: 'prisma/migrations', seed: 'tsx prisma/seed.ts' },
   // Không dùng env() để việc validate schema không cần credentials.
   // Các lệnh truy cập DB vẫn yêu cầu DIRECT_URL thật; không có URL dự phòng.
   datasource: { url: process.env.DIRECT_URL },

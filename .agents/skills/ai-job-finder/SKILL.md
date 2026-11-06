@@ -11,6 +11,8 @@ description: Phát triển hoặc review AI Job Finder trong repository này the
 2. Đọc `docs/implementation-plan.md`; đối chiếu yêu cầu hiện tại với [phase workflow](references/phase-workflow.md). Xác định giai đoạn được phép, không tự triển khai giai đoạn kế tiếp.
 3. Đọc nghiệp vụ liên quan trong PRD và [business rules](references/business-rules.md). Nếu có xung đột chưa giải quyết, nêu rõ trước khi triển khai hành vi phụ thuộc.
 
+Giai đoạn 1 đã được người dùng điều chỉnh thành username/password-only. Đọc `docs/phase-1-authentication.md` trước khi sửa auth: dùng NextAuth Credentials, không email giả, không phục hồi Better Auth/email flows từ PRD cũ. Seed mặc định chỉ Development local; không tự đổi password/role account hiện hữu.
+
 ## Triển khai
 
 4. Kiểm tra schema/migrations hiện có, FK/unique/index và owner của mọi đầu vào; dùng [database guidelines](references/database-guidelines.md). Không tạo bảng chỉ vì đã có trong PRD.

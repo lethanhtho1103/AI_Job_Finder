@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" style={themeVariables}>
+    <html lang="vi" style={themeVariables} data-scroll-behavior="smooth">
       <body>
         <AntdRegistry>
           <AppProvider>

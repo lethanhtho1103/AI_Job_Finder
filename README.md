@@ -1,110 +1,113 @@
 # AI Job Finder
 
-Không gian tìm việc cá nhân bằng Next.js. **Hiện chỉ có Giai đoạn 0:** giao diện khởi đầu, theme, health endpoint, tooling, Prisma/Neon config và tài liệu. Chưa có đăng nhập, upload CV, tìm việc hoặc AI Matching.
+Next.js app module-first cho tìm việc cá nhân. Hiện có nền tảng Giai đoạn 0 và **Authentication cơ bản Giai đoạn 1**: username/password register/login/logout, protected Dashboard và seed Administrator. Chưa có CV, AI hoặc tìm việc.
 
-Nguồn nghiệp vụ: [PRD Word](AI_Job_Finder_PRD_NextJS_Database_Roadmap_Codex_2026.docx). Đọc [implementation plan](docs/implementation-plan.md), [AGENTS.md](AGENTS.md) và [skill dự án](.agents/skills/ai-job-finder/SKILL.md) trước khi phát triển tiếp.
+Đọc [PRD](AI_Job_Finder_PRD_NextJS_Database_Roadmap_Codex_2026.docx), [implementation plan](docs/implementation-plan.md), [điều chỉnh auth](docs/phase-1-authentication.md), [AGENTS.md](AGENTS.md) và [skill dự án](.agents/skills/ai-job-finder/SKILL.md) trước khi phát triển tiếp. Yêu cầu username-only thay phần auth/email của PRD; không email giả.
 
-## Yêu cầu và cài đặt
+## Cài đặt
 
-- Node.js **24.x** và npm. `.nvmrc` ghi dòng Node; không cần cài lại Node nếu đã có.
-- Cài dependencies bằng lock file:
+Cần Node.js **24.x**, npm và Neon PostgreSQL (hoặc PostgreSQL local cho development/test).
 
 ```powershell
 npm ci
+Copy-Item .env.example .env
+```
+
+Install generate Prisma Client, không migrate/seed tự động. Điền `.env`:
+
+| Biến            | Mục đích                                                           |
+| --------------- | ------------------------------------------------------------------ |
+| DATABASE_URL    | Neon pooled URL runtime, có sslmode=require                        |
+| DIRECT_URL      | Neon direct URL cùng database, dùng Prisma CLI/migration/seed      |
+| NEXTAUTH_URL    | Canonical origin: local http://localhost:3000, Production HTTPS    |
+| NEXTAUTH_SECRET | Secret ngẫu nhiên >=32 ký tự, ổn định giữa các instances           |
+| ADMIN_PASSWORD  | Tùy chọn Development; ngoài Development cần password mạnh khi seed |
+
+Có thể dùng password manager tạo secret ngẫu nhiên 32 bytes trở lên rồi điền vào NEXTAUTH_SECRET trong `.env`. Không in secret trong log hoặc commit vào Git. Thay secret làm cookie/CSRF cũ mất hiệu lực.
+
+Review SQL migration, chọn đúng database và backup nếu có dữ liệu, sau đó:
+
+```powershell
+npm run db:validate
+npm run db:deploy
 npm run dev
 ```
 
-Mở [localhost:3000](http://localhost:3000). Trang chủ và build chạy được khi chưa có `.env` hoặc dịch vụ cloud. Không có lệnh generate Prisma/migrate tự động lúc install/build.
+Mở `/register`: username 3–32 ASCII chữ/số/gạch dưới, bắt đầu chữ/số; password 8–128 ký tự và confirm khớp. Sau thành công về Login, đăng nhập → Dashboard, logout → Login. Username không phân biệt hoa thường, account mới luôn Role User.
+
+Trang chủ và `/api/health` vẫn chạy không cần credentials. Login/Register hiển thị tạm chưa sẵn sàng khi thiếu auth config. Health chỉ liveness, không chứng minh Neon đã kết nối. Không email/verify/reset/OAuth/avatar/user-management trong phase 1.
+
+## Seed Admin Development
+
+Sau migration, chỉ trên môi trường Development local:
+
+```powershell
+$env:NODE_ENV = 'development'
+npm run db:seed
+Remove-Item Env:NODE_ENV
+npm run dev
+```
+
+Đăng nhập bằng **admin / 123456**. Chạy seed nhiều lần không đổi mật khẩu/role của account đã tồn tại. Username admin thuộc User thì seed báo lỗi thay vì nâng quyền.
+
+Default password chỉ nằm trong file seed Development, không thuộc code/bundle app Production. Account seed default có `developmentOnly=true`, bị chặn login/session trên Production. Ngoài Development local hoặc trên Vercel, seed cần ADMIN_PASSWORD qua env/secrets: 16–128 ký tự có hoa/thường/số/ký tự đặc biệt. Seed không tự reset admin Development khi chuyển Production; dùng database Production riêng hoặc quy trình quản trị an toàn.
 
 ## Các lệnh
 
-| Lệnh                   | Chức năng                                                   |
-| ---------------------- | ----------------------------------------------------------- |
-| `npm run dev`          | Development server                                          |
-| `npm run build`        | Production build                                            |
-| `npm run start`        | Chạy production build đã có                                 |
-| `npm run lint`         | ESLint                                                      |
-| `npm run typecheck`    | TypeScript strict                                           |
-| `npm run format:check` | Kiểm tra Prettier                                           |
-| `npm run format`       | Format source/tài liệu                                      |
-| `npm test`             | Vitest unit tests                                           |
-| `npm run test:watch`   | Vitest watch                                                |
-| `npm run test:e2e`     | Playwright production smoke desktop/mobile; cần build trước |
-| `npm run db:validate`  | Validate schema Prisma, không kết nối DB                    |
-| `npm run db:check`     | Neon SELECT 1, cần DATABASE_URL thật, timeout 10 giây       |
+| Lệnh                                          | Chức năng                                                      |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `npm run dev`                                 | Development server                                             |
+| `npm run build`                               | Generate Prisma Client và production build; không migrate/seed |
+| `npm run start`                               | Production server từ build đã có                               |
+| `npm run lint` / `npm run typecheck`          | ESLint / TypeScript strict                                     |
+| `npm run format:check` / `npm run format`     | Kiểm tra / sửa Prettier                                        |
+| `npm test` / `npm run test:watch`             | Vitest                                                         |
+| `npm run test:e2e`                            | Production smoke; auth E2E khi có database test                |
+| `npm run db:generate` / `npm run db:validate` | Generate client / validate schema                              |
+| `npm run db:migrate`                          | Tạo migration development, không dùng production               |
+| `npm run db:deploy`                           | Apply migrations đã review qua DIRECT_URL                      |
+| `npm run db:seed`                             | Prisma Admin seed với environment guards                       |
+| `npm run db:check`                            | Neon SELECT 1, timeout 10s, không ghi dữ liệu                  |
 
-Cài Chromium để chạy E2E lần đầu:
+## Kiểm thử
 
 ```powershell
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
 npx playwright install chromium
 npm run build
 npm run test:e2e
 ```
 
-E2E tự mở production server tại `127.0.0.1:3100`, đóng sau kiểm tra, không tái sử dụng server khác. Ảnh chụp ở `test-results/`; trace giữ khi lỗi. Không commit artifacts. Đọc quy tắc quyền chạy app/build trong AGENTS.md khi dùng agent.
-
-## Neon và biến môi trường
-
-Chỉ cần Neon khi muốn kiểm tra kết nối hoặc phát triển auth/database ở phase sau:
+Full auth E2E cần **PostgreSQL local riêng tên ai_job_finder_test**, đã apply migration. Suite chỉ chấp nhận loopback/database đúng tên vì có ghi dữ liệu, xóa counters và kiểm tra seed; không trỏ database đang dùng.
 
 ```powershell
-Copy-Item .env.example .env
+$env:TEST_DATABASE_URL = 'postgresql://TEST_USER:TEST_PASSWORD@127.0.0.1:5432/ai_job_finder_test'
+$env:AUTH_E2E_DEVELOPMENT = '1'
+npm run test:e2e
+Remove-Item Env:AUTH_E2E_DEVELOPMENT
+npm run build
+npm run test:e2e
 ```
 
-Thay placeholder trong `.env` bằng connection strings lấy từ Neon:
+Playwright tự tạo secret cho test process, dùng origin `127.0.0.1:3100`, TEST_DATABASE_URL cho server và một worker tránh counters ảnh hưởng nhau. Không có TEST_DATABASE_URL thì auth integration ghi skip. Development kiểm tra default admin đăng nhập được; Production kiểm tra bị chặn. Ảnh/trace ở `test-results/` ignored; không chia sẻ trace chứa cookie/password test.
 
-| Biến           | Mục đích                                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL` | Pooled URL có hostname `*-pooler.neon.tech`, tài khoản/database và `sslmode=require`; dành cho runtime và db:check |
-| `DIRECT_URL`   | Direct URL Neon cùng database, dành cho Prisma CLI/migrations                                                      |
+## Kiến trúc và bảo mật
 
-CLI dùng dotenv đọc `.env`. Schema validation không cần URL; tác vụ kết nối/migration cần URL thực. Không đưa secrets vào `NEXT_PUBLIC_*`, source, log, Git hoặc ảnh chụp. `.env.example` có ví dụ và các biến tương lai ở dạng comment; chưa cần AI/email/storage trong phase 0.
+`src/app` là entrypoints mỏng; `src/modules/auth` giữ UI/Zod; `src/server/auth` giữ credentials/session/rate limits; `src/server/db` giữ Prisma singleton. NextAuth 4 stable quản lý encrypted JWT/CSRF/cookies, Prisma registry cho revocation. Session cố định 8 giờ, role đọc từ DB; logout xóa registry/cookie. Không localStorage chứa token/password. Prisma client/adapter-pg cùng version 7.10.1; không PrismaAdapter vì Credentials không persist user qua adapter.
 
-```powershell
-npm run db:validate
-npm run db:check
-```
+Rate limits PostgreSQL atomic: login 30/address/15 phút, 10/username/15 phút, register 5/address/giờ. Vercel chỉ tin header IP nền tảng ghi đè; ngoài Vercel dùng shared bucket. Self-host nhiều người cần trusted ingress contract riêng. Quản trị có thể dọn AuthSession/AuthRateLimit hết hạn trong vận hành; chưa có scheduler tự động.
 
-`db:check` chỉ đọc `SELECT 1`, không tạo bảng. Không đưa raw error của provider vào output. Thiếu/sai credentials trả exit code 1; không chứng minh kết nối thành công từ schema validation. Công cụ này xác minh pooled URL; direct URL/migration được kiểm chứng khi triển khai schema thật.
+UI giữ [DESIGN.md](DESIGN.md), Ant Design controls/Tailwind layout, tokens `src/lib/theme.ts`; AuthForm chung, keyboard password toggle, lỗi/loading, responsive. Dashboard chỉ là điểm đến được bảo vệ, chưa có dữ liệu nghiệp vụ.
 
-`prisma/schema.prisma` hiện chỉ có datasource PostgreSQL. Chưa có generator, Prisma Client, model hoặc migration. Phase 1 sẽ generate schema Better Auth theo version thực, thêm client/driver adapter tương thích Prisma 7.10.1, singleton và migration đầu tiên. Không chạy `prisma generate` hoặc thêm bảng giả ở phase 0.
+`GET /api/health`: HTTP 200, no-store, `{ "status": "ok", "service": "ai-job-finder" }`.
 
-## Health endpoint
+## Vercel và Git
 
-`GET /api/health` trả HTTP 200, `Cache-Control: no-store`:
+Vercel: Next.js, Node 24, install `npm ci`, build `npm run build`, output mặc định. Đặt NEXTAUTH_URL HTTPS, NEXTAUTH_SECRET, Neon pooled/direct env đúng Preview/Production. Migration/seed là bước quản trị riêng, không trong build. Không NODE_ENV=development hoặc admin default trên Production. Kiểm tra lại quotas/chính sách trước deploy; Hobby chỉ dùng cá nhân phi thương mại.
 
-```json
-{ "status": "ok", "service": "ai-job-finder" }
-```
+Người dùng tự quản lý GitHub/remote/commit/push. Agent không tự sửa remote hoặc commit. Secrets/build/dependencies/artifacts được ignore. Skill `ai-job-finder` đã xuất hiện trong danh sách skill của runtime phiên Giai đoạn 1.
 
-Đây là liveness của ứng dụng, không kiểm tra Neon, AI, email hoặc storage.
-
-## Kiến trúc source
-
-`src/app` giữ pages/layouts và HTTP entrypoints mỏng; `src/components` chứa shared UI/layout; `src/lib` chứa theme/utilities; `src/server` dành cho server infrastructure; `prisma` dành cho schema; `tests` dành cho unit/E2E. Business modules sẽ được tạo trong `src/modules/<feature>` khi triển khai phase tương ứng. Không tạo trước các folder rỗng.
-
-Ant Design quản lý components, Tailwind quản lý layout. [DESIGN.md](DESIGN.md) ghi visual contract; `src/lib/theme.ts` là nguồn token duy nhất, được dùng bởi ConfigProvider và CSS variables tại root layout. AntdRegistry phục vụ SSR styles. UI dùng tiếng Việt và font hệ thống, không tải font lúc build.
-
-## Skill của repository
-
-Skill nằm tại `.agents/skills/ai-job-finder/SKILL.md`, name `ai-job-finder`, automatic discovery theo mặc định. Mở repo root trong Codex, kiểm tra skill selector hoặc gọi `$ai-job-finder`. Nếu chưa xuất hiện, mở lại phiên/restart Codex theo tài liệu chính thức. YAML validation chỉ chứng minh định dạng; không chứng minh phiên hiện tại đã reload skill. Không cần cài global hoặc thay cấu hình cá nhân.
-
-## Chuẩn bị Vercel
-
-Phase 0 chỉ chuẩn bị source, chưa deploy. Khi được yêu cầu deploy:
-
-1. Người dùng tự tạo GitHub repo, commit/push và kết nối Vercel.
-2. Framework preset **Next.js**, Node.js **24.x**; install `npm ci`, build `npm run build`, để output mặc định.
-3. Thêm biến môi trường cần thiết theo phase trong Vercel Settings, tách Preview/Production; không commit chúng.
-4. Không chạy migrations trong build. Khi có schema thật, review/backup và chạy `prisma migrate deploy` riêng bằng direct URL.
-5. Kiểm tra `/`, trang 404 và `/api/health` trên deployment thật. Local build không chứng minh đã deploy/kết nối cloud.
-
-Vercel Hobby chỉ dùng cá nhân phi thương mại; kiểm tra lại điều khoản/quota trước deploy hoặc mở SaaS. Neon, storage, AI và email là dịch vụ ngoài. Không cần `vercel.json` vì cấu hình Next.js mặc định đáp ứng phase 0.
-
-## Giai đoạn tiếp theo và Git
-
-Phase 1: Better Auth email/password, email verification/reset, generated auth schema, session/owner guards, migrations thật và kiểm thử hai tài khoản. Chỉ bắt đầu khi có yêu cầu mới.
-
-Git local đã khởi tạo; chưa có remote hoặc commit. `.gitignore` loại `.env*` (trừ `.env.example`), build output, dependencies và test artifacts. Người dùng tự commit/push. Commit message đề xuất: `chore: initialize AI Job Finder phase 0 foundation`.
-
-Kết quả kiểm tra và giới hạn xác minh lần bàn giao tại [báo cáo Giai đoạn 0](docs/phase-0-report.md).
+Báo cáo: [Giai đoạn 0](docs/phase-0-report.md), [Giai đoạn 1](docs/phase-1-report.md). Giai đoạn 2 chỉ bắt đầu khi có yêu cầu mới.

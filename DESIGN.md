@@ -7,6 +7,7 @@ colors:
   primary-hover: '#115e59'
   ink: '#17343b'
   muted: '#52676d'
+  danger: '#b42318'
   background: '#f3f6f5'
   surface: '#ffffff'
   border: '#ccd8d5'
@@ -46,6 +47,9 @@ components:
     backgroundColor: '{colors.scrollbar}'
   scrollbar-hover:
     backgroundColor: '{colors.scrollbar-hover}'
+  form-error:
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.danger}'
 ---
 
 # AI Job Finder Design System
@@ -58,7 +62,7 @@ Một cuốn sổ hành trình nghề nghiệp: thông tin được xếp theo t
 
 ### Product context and register
 
-- Đối tượng: người dùng cá nhân tìm việc; căn cứ PRD chương 1–4. Giai đoạn 0 giải thích sản phẩm đang phát triển, chưa thực hiện tìm kiếm.
+- Đối tượng: người dùng cá nhân tìm việc; căn cứ PRD chương 1–4 và yêu cầu auth điều chỉnh ở docs/phase-1-authentication.md. Giai đoạn 1 có đăng ký/đăng nhập/đăng xuất; chưa thực hiện tìm kiếm.
 - Ngôn ngữ: tiếng Việt theo lựa chọn người dùng. Chưa có cam kết thị trường theo quốc gia, chưa có locale switcher. Code dùng tiếng Anh.
 - Usage: desktop để đọc JD/hồ sơ, mobile để xem nhanh. Register sản phẩm tiện ích, không landing quảng cáo phô trương.
 - Signature: đường nối CV → Tiêu chí → Công việc ở khối ghi chú. Các số 01–04 thể hiện thứ tự nghiệp vụ thật, không phải thống kê giả.
@@ -98,11 +102,11 @@ Primary CTA là Antd Button link tới phần cách hoạt động đang có th�
 
 ### Navigation and data display
 
-SiteShell sở hữu brand/home link, skip link, main landmark và footer. FeedbackPanel dùng chung hierarchy cho 404/error. Chưa có data table hoặc authentication navigation. Không báo điểm, số công việc hoặc tích hợp giả.
+SiteShell sở hữu brand/home link, account navigation, skip link, main landmark và footer. FeedbackPanel dùng chung hierarchy cho 404/error. Auth có Login/Register links, protected Dashboard và Logout; chưa có data table. Không báo điểm, số công việc hoặc tích hợp giả.
 
 ### Forms and overlays
 
-Chưa áp dụng ở phase 0. Khi bổ sung dùng Ant Design controls, validation tiếng Việt và Zod, lựa chọn overlay theo workflow. Không tạo contract/form primitives rỗng trước.
+Giai đoạn 1 dùng AuthForm chung cho Login/Register: Ant Design Form/Input/Button, validation Zod tiếng Việt tại submit; focus field lỗi đầu tiên. PasswordInput dùng toggle button có keyboard/aria và autocomplete đúng, cho phép paste/password manager. Submit khóa thao tác trùng và giữ label; feedback inline có live region. Vùng feedback được giữ chỗ. Help/placeholder dùng muted đủ contrast; lỗi dùng danger. Không có dialog hoặc toast workflow trong phase này. Chi tiết tại docs/phase-1-authentication.md.
 
 ### Iconography
 
@@ -125,7 +129,7 @@ Tiếng Việt trực tiếp, không hứa kết quả tuyển dụng. Tách rõ
 | `src/styles/globals.css`          | Global baseline                 | Scrollbars, focus, reduced motion, forced colors; không opt-in scrollbar class |
 | SiteShell/FeedbackPanel           | React components                | Home, 404, error boundary                                                      |
 
-Kiểm tra drift bằng cách đối chiếu token frontmatter với `tokens`, CSS không hardcode lại palette; production E2E kiểm tra computed scrollbar, SSR/hydration và axe. UI hiện có một trang giới thiệu nên chưa cần UX-CONTRACT.md đa màn hình. Thêm contract khi có workflow thực sự.
+Kiểm tra drift bằng cách đối chiếu token frontmatter với `tokens`, CSS không hardcode lại palette; E2E kiểm tra computed scrollbar, SSR/hydration và axe. Auth có hai form tương đương dùng chung AuthForm; contract hành vi/nguồn nghiệp vụ nằm trong docs/phase-1-authentication.md, chưa có CRUD/table/destructive flow cần UX-CONTRACT.md riêng.
 
 ## Do's and Don'ts
 

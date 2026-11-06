@@ -13,7 +13,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           </span>
           <span>AI Job Finder</span>
         </Link>
-        <span className="header-note">Không gian tìm việc cá nhân</span>
+        <nav aria-label="Tài khoản">
+          <Link className="account-link" href="/dashboard">
+            Tài khoản
+          </Link>
+        </nav>
       </header>
       <main id="noi-dung" tabIndex={-1}>
         {children}
