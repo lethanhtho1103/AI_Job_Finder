@@ -1,0 +1,5 @@
+// Giai đoạn 0 chỉ cấu hình PostgreSQL. Chưa có model hoặc migration.
+// Thêm schema Better Auth được generate theo phiên bản thực tế ở Giai đoạn 1.
+datasource db {
+  provider = "postgresql"
+}
